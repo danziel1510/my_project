@@ -1,74 +1,61 @@
 import re
-
+import datetime
 import streamlit as st
 from back import Location
-import json
-import os
-import datetime
-import re
+from storage import AttendanceStorage
 
-file_name = f"data {datetime.datetime.now().strftime('%Y-%m-%d')}.json"
 st.set_page_config(
     page_title="Smart Attendance System",
     page_icon="✍",
-    layout='wide',
+    layout="wide",
     initial_sidebar_state="expanded",
 )
 
+storage = AttendanceStorage()
+
 st.write("Welcome to your attendance system")
+if storage.use_sheets:
+    st.info("Attendance is being saved to Google Sheets.")
+else:
+    st.info("Running in local fallback mode. Add Streamlit secrets for Google Sheets storage.")
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     first_name = st.text_input("First Name")
- 
+
 with col2:
     last_name = st.text_input("Last Name")
 
 with col3:
-    matric_number = st.text_input("Enter your matric number",
-    placeholder="e.g 22/ENG05/009",).upper()
+    matric_number = st.text_input(
+        "Enter your matric number",
+        placeholder="e.g 22/ENG05/009",
+    ).upper()
 
 pattern = r"^\d{2}/[A-Z]{3}\d{2}/\d{3}$"
 if matric_number and not re.match(pattern, matric_number):
     st.warning("Please enter a valid matric number in the format: 22/ENG05/009")
 
-#st.write(first_name, last_name, matric_number)
 location = Location()
 status = location.state()
-attendance = []
-attendance.append([first_name, last_name, matric_number])
-if  first_name == "" or last_name == "" or matric_number == "":
-    st.warning("Please fill in all fields to submit attendance.")
-
-record = {
-    "first_name": first_name,
-    "last_name": last_name,
-    "matric_number": matric_number
-}
-
-def save_attendance(record):
-    if os.path.exists(file_name) and os.path.getsize(file_name) > 0:
-        with open(file_name, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = []
-
-    data.append(record)
-    with open(file_name, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
 
 if st.button("Submit Attendance"):
-    if status is True:
-        if os.path.exists(file_name) and os.path.getsize(file_name) > 0:
-            with open(file_name, "r", encoding="utf-8") as f:
-                attendance = json.load(f)
-        if record not in attendance:
-            save_attendance(record)
-            st.success("Attendance submitted successfully.")
-        else:
-            st.warning("Attendance already submitted.")
+    if not first_name or not last_name or not matric_number:
+        st.warning("Please fill in all fields to submit attendance.")
     elif status is False:
         st.error("Attendance Rejected: You are not within the allowed radius.")
-    else:
+    elif status is None:
         st.warning("Please allow location access in your browser.")
+    else:
+        record = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "matric_number": matric_number,
+        }
+        if storage.has_duplicate(record):
+            st.warning("Attendance already submitted.")
+        else:
+            storage.save_attendance(record)
+            st.success("Attendance submitted successfully.")
 
