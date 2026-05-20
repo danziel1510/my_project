@@ -4,7 +4,7 @@ from geopy.distance import geodesic
 class Location:
     OFFICE_LATITUDE = 9.103837578197247
     OFFICE_LONGITUDE = 7.410951638575079
-    ALLOWED_RADIUS = 500
+    ALLOWED_RADIUS = 10000
 
     def user_location(self):
         location = streamlit_geolocation()
